@@ -1,0 +1,722 @@
+{% extends "base.html" %}
+
+{% block title %}财报分析 - 智能财报分析平台{% endblock %}
+
+{% block head_extra %}
+<!-- Add showdown.js for Markdown conversion -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-secondary-800">财报分析</h1>
+    <p class="text-secondary-600 mt-2">从财务报告中提取关键指标，生成结构化数据和可视化图表</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column - Selection Panel -->
+    <div class="lg:col-span-1">
+        <!-- Report Selection Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+            <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-file-alt mr-2"></i> 选择报告
+                </h2>
+            </div>
+            <div class="p-6">
+                <form id="analysis-form">
+                    <div class="mb-4">
+                        <label for="stock-code" class="block text-sm font-medium text-secondary-700 mb-1">
+                            股票代码 <span class="text-danger-500">*</span>
+                        </label>
+                        <select id="stock-code" name="stock_code" required
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                            <option value="" selected disabled>请选择股票代码</option>
+                            <!-- 动态加载股票代码 -->
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="year" class="block text-sm font-medium text-secondary-700 mb-1">
+                            报告年份 <span class="text-danger-500">*</span>
+                        </label>
+                        <select id="year" name="year" required disabled
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                            <option value="" selected disabled>请先选择股票代码</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="report-type" class="block text-sm font-medium text-secondary-700 mb-1">
+                            报告类型 <span class="text-danger-500">*</span>
+                        </label>
+                        <select id="report-type" name="report_type" required disabled
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                            <option value="" selected disabled>请先选择年份</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" id="submit-btn"
+                        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md shadow transition duration-200 flex items-center justify-center">
+                        <i class="fas fa-chart-bar mr-2"></i> 开始分析
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Analysis Features Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-secondary-600 to-secondary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-tools mr-2"></i> 分析功能
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="space-y-3">
+                    <div class="bg-primary-50 border-l-4 border-primary-500 p-4 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-primary-800">基础文本分析</h3>
+                            <span class="text-primary-600"><i class="fas fa-check-circle"></i></span>
+                        </div>
+                        <p class="text-sm text-primary-700 mt-1">文本统计、关键词提取、章节识别</p>
+                    </div>
+                    
+                    <div class="bg-secondary-50 border-l-4 border-secondary-300 p-4 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-secondary-800">财务指标提取</h3>
+                            <span class="text-secondary-500"><i class="fas fa-check-circle"></i></span>
+                        </div>
+                        <p class="text-sm text-secondary-600 mt-1">提取资产负债表、利润表、现金流量表数据</p>
+                    </div>
+                    
+                    <div class="bg-secondary-50 border-l-4 border-secondary-300 p-4 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-secondary-800">趋势分析</h3>
+                            <span class="text-secondary-400"><i class="fas fa-hourglass-half"></i></span>
+                        </div>
+                        <p class="text-sm text-secondary-600 mt-1">多期报表对比、同比增长分析（开发中）</p>
+                    </div>
+                    
+                    <div class="bg-secondary-50 border-l-4 border-secondary-300 p-4 rounded-md">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-secondary-800">风险识别</h3>
+                            <span class="text-secondary-400"><i class="fas fa-hourglass-half"></i></span>
+                        </div>
+                        <p class="text-sm text-secondary-600 mt-1">识别财务风险点、异常变动（开发中）</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - Analysis Results -->
+    <div class="lg:col-span-2">
+        <!-- Analysis Results Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+            <div class="bg-gradient-to-r from-success-600 to-success-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-chart-line mr-2"></i> 分析结果
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="analysis-container" class="hidden">
+                    <div id="analysis-loading" class="flex flex-col items-center justify-center py-10">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-success-600"></div>
+                        <p class="mt-4 text-secondary-600">正在分析中，请稍候...</p>
+                    </div>
+                    
+                    <div id="analysis-result" class="hidden">
+                        <!-- 分析结果将在这里显示 -->
+                    </div>
+                </div>
+                
+                <div id="initial-message" class="flex flex-col items-center justify-center py-16">
+                    <i class="fas fa-chart-pie text-secondary-300 text-6xl mb-4"></i>
+                    <p class="text-secondary-500">请在左侧选择报告并开始分析</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Report Preview Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-secondary-600 to-secondary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-file-alt mr-2"></i> 报告预览
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="report-preview" class="hidden">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h3 id="preview-title" class="text-lg font-semibold text-secondary-800">报告预览</h3>
+                        <a href="#" id="download-report-btn" class="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium py-1 px-3 rounded shadow transition duration-200 flex items-center" target="_blank">
+                            <i class="fas fa-download mr-1"></i> 下载完整报告
+                        </a>
+                    </div>
+                    <div class="bg-secondary-50 rounded-md p-4 border border-secondary-200">
+                        <pre id="report-text" class="text-sm text-secondary-800 whitespace-pre-wrap" style="max-height: 400px; overflow-y: auto;"></pre>
+                    </div>
+                </div>
+                
+                <div id="preview-initial-message" class="flex flex-col items-center justify-center py-16">
+                    <i class="fas fa-file-alt text-secondary-300 text-6xl mb-4"></i>
+                    <p class="text-secondary-500">选择报告后将显示预览</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Markdown styles */
+    .markdown-body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        word-wrap: break-word;
+    }
+    
+    .markdown-body h1, .markdown-body h2, .markdown-body h3, 
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+    
+    .markdown-body h1 { font-size: 2em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+    .markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+    .markdown-body h3 { font-size: 1.25em; }
+    .markdown-body h4 { font-size: 1em; }
+    
+    .markdown-body p {
+        margin-top: 0;
+        margin-bottom: 16px;
+    }
+    
+    .markdown-body ul, .markdown-body ol {
+        padding-left: 2em;
+        margin-top: 0;
+        margin-bottom: 16px;
+    }
+    
+    .markdown-body li {
+        margin-top: 0.25em;
+    }
+    
+    .markdown-body code {
+        padding: 0.2em 0.4em;
+        margin: 0;
+        font-size: 85%;
+        background-color: rgba(27, 31, 35, 0.05);
+        border-radius: 3px;
+    }
+    
+    .markdown-body pre {
+        padding: 16px;
+        overflow: auto;
+        font-size: 85%;
+        line-height: 1.45;
+        background-color: #f6f8fa;
+        border-radius: 3px;
+    }
+    
+    /* Financial data card styles */
+    .financial-card {
+        @apply bg-white rounded-lg shadow-md p-4 border border-gray-200;
+    }
+    
+    .financial-card-header {
+        @apply text-lg font-semibold text-secondary-800 mb-3 pb-2 border-b border-gray-200;
+    }
+    
+    .financial-data-row {
+        @apply flex justify-between py-2 border-b border-gray-100;
+    }
+    
+    .financial-data-label {
+        @apply text-secondary-600;
+    }
+    
+    .financial-data-value {
+        @apply font-medium text-secondary-800;
+    }
+    
+    .financial-data-value.positive {
+        @apply text-success-600;
+    }
+    
+    .financial-data-value.negative {
+        @apply text-danger-600;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 全局变量，存储报告列表
+    let reports = [];
+    
+    // 加载可用的报告列表
+    function loadAvailableReports() {
+        axios.get('/crawler/list')
+            .then(function(response) {
+                reports = response.data.reports || [];
+                
+                if (reports.length === 0) {
+                    document.getElementById('stock-code').innerHTML = '<option value="" selected disabled>暂无报告，请先爬取财报</option>';
+                    return;
+                }
+                
+                // 提取所有股票代码
+                const stockCodes = new Set();
+                const stockCodeMap = {}; // 股票代码到公司名称的映射
+                
+                reports.forEach(report => {
+                    if (report.report_metadata && report.report_metadata.stock_code) {
+                        stockCodes.add(report.report_metadata.stock_code);
+                        stockCodeMap[report.report_metadata.stock_code] = report.report_metadata.company_name;
+                    }
+                });
+                
+                // 更新股票代码选择框
+                const stockCodeSelect = document.getElementById('stock-code');
+                stockCodeSelect.innerHTML = '<option value="" selected disabled>请选择股票代码</option>';
+                
+                Array.from(stockCodes).sort().forEach(code => {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.textContent = `${code} - ${stockCodeMap[code] || '未知公司'}`;
+                    stockCodeSelect.appendChild(option);
+                });
+            })
+            .catch(function(error) {
+                console.error('Error fetching reports:', error);
+                document.getElementById('stock-code').innerHTML = '<option value="" selected disabled>获取报告列表失败</option>';
+            });
+    }
+    
+    // 获取公司名称
+    function getCompanyName(stockCode) {
+        for (const report of reports) {
+            if (report.report_metadata && report.report_metadata.stock_code === stockCode) {
+                return report.report_metadata.company_name || '未知公司';
+            }
+        }
+        return '未知公司';
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const analysisForm = document.getElementById('analysis-form');
+        const stockCodeSelect = document.getElementById('stock-code');
+        const yearSelect = document.getElementById('year');
+        const reportTypeSelect = document.getElementById('report-type');
+        const submitBtn = document.getElementById('submit-btn');
+        const analysisContainer = document.getElementById('analysis-container');
+        const initialMessage = document.getElementById('initial-message');
+        const analysisLoading = document.getElementById('analysis-loading');
+        const analysisResult = document.getElementById('analysis-result');
+        const reportPreview = document.getElementById('report-preview');
+        const previewInitialMessage = document.getElementById('preview-initial-message');
+        const reportText = document.getElementById('report-text');
+        const previewTitle = document.getElementById('preview-title');
+        const downloadReportBtn = document.getElementById('download-report-btn');
+        
+        // 加载可用的报告列表
+        loadAvailableReports();
+        
+        // 股票代码选择变化时，加载对应的年份
+        stockCodeSelect.addEventListener('change', function() {
+            const stockCode = this.value;
+            if (!stockCode) return;
+            
+            // 清空并禁用年份和报告类型选择
+            yearSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
+            yearSelect.disabled = true;
+            reportTypeSelect.innerHTML = '<option value="" selected disabled>请先选择年份</option>';
+            reportTypeSelect.disabled = true;
+            
+            // 获取该股票代码的所有年份
+            const availableYears = new Set();
+            
+            // 从已加载的报告中提取年份
+            reports.forEach(report => {
+                if (report.report_metadata && report.report_metadata.stock_code === stockCode) {
+                    const year = report.report_metadata.report_period.replace(/[^0-9]/g, '');
+                    availableYears.add(year);
+                }
+            });
+            
+            // 按年份降序排序
+            const sortedYears = Array.from(availableYears).sort((a, b) => b - a);
+            
+            // 更新年份选择框
+            yearSelect.innerHTML = '<option value="" selected disabled>请选择年份</option>';
+            sortedYears.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = `${year}年`;
+                yearSelect.appendChild(option);
+            });
+            
+            yearSelect.disabled = false;
+        });
+        
+        // 年份选择变化时，加载对应的报告类型
+        yearSelect.addEventListener('change', function() {
+            const stockCode = stockCodeSelect.value;
+            const year = this.value;
+            if (!stockCode || !year) return;
+            
+            // 清空并禁用报告类型选择
+            reportTypeSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
+            reportTypeSelect.disabled = true;
+            
+            // 获取该股票代码和年份的所有报告类型
+            const availableTypes = new Set();
+            
+            // 从已加载的报告中提取报告类型
+            reports.forEach(report => {
+                if (report.report_metadata && 
+                    report.report_metadata.stock_code === stockCode && 
+                    report.report_metadata.report_period.includes(year)) {
+                    availableTypes.add(report.report_metadata.report_type);
+                }
+            });
+            
+            // 更新报告类型选择框
+            reportTypeSelect.innerHTML = '<option value="" selected disabled>请选择报告类型</option>';
+            availableTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                reportTypeSelect.appendChild(option);
+            });
+            
+            reportTypeSelect.disabled = false;
+        });
+        
+        // 报告类型选择变化时，加载报告预览
+        reportTypeSelect.addEventListener('change', function() {
+            const stockCode = stockCodeSelect.value;
+            const year = yearSelect.value;
+            const reportType = this.value;
+            if (!stockCode || !year || !reportType) return;
+            
+            // 显示预览加载状态
+            reportPreview.classList.remove('hidden');
+            previewInitialMessage.classList.add('hidden');
+            reportText.textContent = '加载中...';
+            
+            // 设置预览标题和下载按钮
+            previewTitle.textContent = `${getCompanyName(stockCode)} ${year}年${reportType} 预览`;
+            downloadReportBtn.href = `/crawler/download/${stockCode}/${year}/${reportType}`;
+            
+            // 获取报告文本
+            axios.get(`/crawler/text/${stockCode}/${year}/${reportType}`)
+                .then(function(response) {
+                    const text = response.data.text;
+                    
+                    // 显示报告预览（最多显示前2000个字符）
+                    reportText.textContent = text.length > 2000 
+                        ? text.substring(0, 2000) + '...\n\n[内容过长，仅显示部分，请下载完整报告查看]' 
+                        : text;
+                })
+                .catch(function(error) {
+                    console.error('Error fetching report text:', error);
+                    reportText.textContent = '获取报告文本失败: ' + (error.response?.data?.detail || error.message);
+                });
+        });
+        
+        // 表单提交处理
+        analysisForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const stockCode = stockCodeSelect.value;
+            const year = yearSelect.value;
+            const reportType = reportTypeSelect.value;
+            
+            if (!stockCode || !year || !reportType) {
+                alert('请选择完整的报告信息');
+                return;
+            }
+            
+            // 显示分析容器，隐藏初始消息
+            analysisContainer.classList.remove('hidden');
+            initialMessage.classList.add('hidden');
+            analysisLoading.classList.remove('hidden');
+            analysisResult.classList.add('hidden');
+            
+            // 禁用提交按钮
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 分析中...';
+            
+            // 创建表单数据
+            const formData = new FormData();
+            formData.append('stock_code', stockCode);
+            formData.append('year', year);
+            formData.append('report_type', reportType);
+            
+            // 发送分析请求
+            axios.post('/analysis/basic', formData)
+                .then(function(response) {
+                    // 显示分析结果
+                    analysisLoading.classList.add('hidden');
+                    analysisResult.classList.remove('hidden');
+                    
+                    const result = response.data;
+                    let resultHtml = '';
+                    
+                    // 分析摘要
+                    if (result.summary) {
+                        const converter = new showdown.Converter();
+                        const summaryHtml = converter.makeHtml(result.summary);
+                        
+                        resultHtml += `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6 border border-gray-200">
+                            <div class="bg-primary-50 px-6 py-4 border-b border-primary-100">
+                                <h3 class="text-lg font-semibold text-primary-800">财务分析摘要</h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="markdown-body">${summaryHtml}</div>
+                            </div>
+                        </div>`;
+                    }
+                    
+                    // 财务数据
+                    if (result.financial_data) {
+                        const financialData = result.financial_data;
+                        
+                        resultHtml += `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- 基本财务指标 -->
+                            <div class="financial-card">
+                                <h3 class="financial-card-header">基本财务指标</h3>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">归母净利润</span>
+                                    <span class="financial-data-value">${financialData.net_profit !== null ? financialData.net_profit + ' 元' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">净利润同比增长</span>
+                                    <span class="financial-data-value ${financialData.net_profit_yoy > 0 ? 'positive' : financialData.net_profit_yoy < 0 ? 'negative' : ''}">
+                                        ${financialData.net_profit_yoy !== null ? financialData.net_profit_yoy + '%' : '暂无数据'}
+                                    </span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">营业总收入</span>
+                                    <span class="financial-data-value">${financialData.revenue !== null ? financialData.revenue + ' 元' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">营收同比增长</span>
+                                    <span class="financial-data-value ${financialData.revenue_yoy > 0 ? 'positive' : financialData.revenue_yoy < 0 ? 'negative' : ''}">
+                                        ${financialData.revenue_yoy !== null ? financialData.revenue_yoy + '%' : '暂无数据'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- 盈利能力指标 -->
+                            <div class="financial-card">
+                                <h3 class="financial-card-header">盈利能力指标</h3>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">净资产收益率(ROE)</span>
+                                    <span class="financial-data-value">${financialData.profitability?.roe !== null ? financialData.profitability.roe + '%' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">总资产收益率(ROA)</span>
+                                    <span class="financial-data-value">${financialData.profitability?.roa !== null ? financialData.profitability.roa + '%' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">毛利率</span>
+                                    <span class="financial-data-value">${financialData.profitability?.gross_margin !== null ? financialData.profitability.gross_margin + '%' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">净利率</span>
+                                    <span class="financial-data-value">${financialData.profitability?.net_margin !== null ? financialData.profitability.net_margin + '%' : '暂无数据'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- 现金流量 -->
+                            <div class="financial-card">
+                                <h3 class="financial-card-header">现金流量</h3>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">经营活动现金流</span>
+                                    <span class="financial-data-value ${financialData.cash_flow?.operating > 0 ? 'positive' : financialData.cash_flow?.operating < 0 ? 'negative' : ''}">
+                                        ${financialData.cash_flow?.operating !== null ? financialData.cash_flow.operating + ' 元' : '暂无数据'}
+                                    </span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">投资活动现金流</span>
+                                    <span class="financial-data-value ${financialData.cash_flow?.investing > 0 ? 'positive' : financialData.cash_flow?.investing < 0 ? 'negative' : ''}">
+                                        ${financialData.cash_flow?.investing !== null ? financialData.cash_flow.investing + ' 元' : '暂无数据'}
+                                    </span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">筹资活动现金流</span>
+                                    <span class="financial-data-value ${financialData.cash_flow?.financing > 0 ? 'positive' : financialData.cash_flow?.financing < 0 ? 'negative' : ''}">
+                                        ${financialData.cash_flow?.financing !== null ? financialData.cash_flow.financing + ' 元' : '暂无数据'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- 资本结构 -->
+                            <div class="financial-card">
+                                <h3 class="financial-card-header">资本结构</h3>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">净资产</span>
+                                    <span class="financial-data-value">${financialData.capital_structure?.net_assets !== null ? financialData.capital_structure.net_assets + ' 元' : '暂无数据'}</span>
+                                </div>
+                                
+                                <div class="financial-data-row">
+                                    <span class="financial-data-label">资产负债率</span>
+                                    <span class="financial-data-value">${financialData.capital_structure?.debt_ratio !== null ? financialData.capital_structure.debt_ratio + '%' : '暂无数据'}</span>
+                                </div>
+                            </div>
+                        </div>`;
+                        
+                        // 费用占比
+                        if (financialData.expense_ratios) {
+                            resultHtml += `
+                            <div class="financial-card mb-6">
+                                <h3 class="financial-card-header">费用占比</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div class="p-4 bg-secondary-50 rounded-lg text-center">
+                                        <div class="text-xl font-bold text-secondary-800">${financialData.expense_ratios.sales_expense_ratio !== null ? financialData.expense_ratios.sales_expense_ratio + '%' : '暂无'}</div>
+                                        <div class="text-sm text-secondary-600">销售费用率</div>
+                                    </div>
+                                    
+                                    <div class="p-4 bg-secondary-50 rounded-lg text-center">
+                                        <div class="text-xl font-bold text-secondary-800">${financialData.expense_ratios.admin_expense_ratio !== null ? financialData.expense_ratios.admin_expense_ratio + '%' : '暂无'}</div>
+                                        <div class="text-sm text-secondary-600">管理费用率</div>
+                                    </div>
+                                    
+                                    <div class="p-4 bg-secondary-50 rounded-lg text-center">
+                                        <div class="text-xl font-bold text-secondary-800">${financialData.expense_ratios.rd_expense_ratio !== null ? financialData.expense_ratios.rd_expense_ratio + '%' : '暂无'}</div>
+                                        <div class="text-sm text-secondary-600">研发费用率</div>
+                                    </div>
+                                    
+                                    <div class="p-4 bg-secondary-50 rounded-lg text-center">
+                                        <div class="text-xl font-bold text-secondary-800">${financialData.expense_ratios.financial_expense_ratio !== null ? financialData.expense_ratios.financial_expense_ratio + '%' : '暂无'}</div>
+                                        <div class="text-sm text-secondary-600">财务费用率</div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
+                        
+                        // 主营业务构成
+                        if (financialData.operation_data && financialData.operation_data.main_business && financialData.operation_data.main_business.length > 0) {
+                            resultHtml += `
+                            <div class="financial-card">
+                                <h3 class="financial-card-header">主营业务构成</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">业务板块</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">营业收入</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">占比</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">同比增长</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">`;
+                            
+                            financialData.operation_data.main_business.forEach(business => {
+                                resultHtml += `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-800">${business.segment}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">${business.revenue} 元</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">${business.proportion}%</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm ${business.yoy > 0 ? 'text-success-600' : business.yoy < 0 ? 'text-danger-600' : 'text-secondary-600'}">${business.yoy}%</td>
+                                </tr>`;
+                            });
+                            
+                            resultHtml += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>`;
+                        }
+                    }
+                    
+                    // 如果没有有效的分析结果
+                    if (!resultHtml) {
+                        resultHtml = `
+                        <div class="bg-warning-50 border-l-4 border-warning-400 p-4 rounded-md">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle text-warning-400"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-warning-700">
+                                        未能提取到有效的财务数据。这可能是因为报告格式不标准或OCR识别不准确。
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6">
+                            <h3 class="text-lg font-semibold text-secondary-800 mb-3">报告基本信息</h3>
+                            <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <p class="text-sm text-secondary-600">公司名称: <span class="font-medium text-secondary-800">${result.basic_info?.company_name || '未知'}</span></p>
+                                        <p class="text-sm text-secondary-600">股票代码: <span class="font-medium text-secondary-800">${result.basic_info?.stock_code || '未知'}</span></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-secondary-600">报告期间: <span class="font-medium text-secondary-800">${result.basic_info?.report_period || '未知'}</span></p>
+                                        <p class="text-sm text-secondary-600">文本长度: <span class="font-medium text-secondary-800">${result.report_info?.text_length || '未知'} 字符</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                    
+                    // 更新分析结果
+                    analysisResult.innerHTML = resultHtml;
+                    
+                    // 重置提交按钮
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-chart-bar mr-2"></i> 开始分析';
+                })
+                .catch(function(error) {
+                    console.error('Error analyzing report:', error);
+                    
+                    // 显示错误信息
+                    analysisLoading.classList.add('hidden');
+                    analysisResult.classList.remove('hidden');
+                    analysisResult.innerHTML = `
+                    <div class="bg-danger-50 border-l-4 border-danger-400 p-4 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-danger-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-danger-700">
+                                    分析报告时出错: ${error.response?.data?.detail || error.message}
+                                </p>
+                            </div>
+                        </div>
+                    </div>`;
+                    
+                    // 重置提交按钮
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-chart-bar mr-2"></i> 开始分析';
+                });
+        });
+    });
+</script>
+{% endblock %}

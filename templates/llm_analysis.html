@@ -1,0 +1,1214 @@
+{% extends "base.html" %}
+
+{% block title %}智能财报分析 - 基于大语言模型{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analysis-card {
+        transition: all 0.3s ease;
+    }
+    
+    .analysis-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .indicator-up {
+        color: #22c55e;
+    }
+    
+    .indicator-down {
+        color: #ef4444;
+    }
+    
+    .indicator-neutral {
+        color: #f59e0b;
+    }
+    
+    .chart-container {
+        height: 300px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .financial-table th {
+        position: sticky;
+        top: 0;
+        background-color: #f8fafc;
+        z-index: 10;
+    }
+    
+    .dark .financial-table th {
+        background-color: #1e293b;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #0ea5e9;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .markdown-content h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .markdown-content h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-top: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .markdown-content h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .markdown-content p {
+        margin-bottom: 0.75rem;
+    }
+    
+    .markdown-content ul, .markdown-content ol {
+        margin-left: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .markdown-content li {
+        margin-bottom: 0.25rem;
+    }
+    
+    .markdown-content blockquote {
+        border-left: 4px solid #cbd5e1;
+        padding-left: 1rem;
+        margin-left: 0;
+        margin-right: 0;
+        font-style: italic;
+    }
+    
+    .markdown-content code {
+        background-color: #f1f5f9;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-family: monospace;
+    }
+    
+    .markdown-content pre {
+        background-color: #f1f5f9;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        margin-bottom: 1rem;
+    }
+    
+    .dark .markdown-content code, .dark .markdown-content pre {
+        background-color: #334155;
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .tab-button {
+        position: relative;
+    }
+    
+    .tab-button.active:after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #0ea5e9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- 页面标题 -->
+    <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold text-secondary-800 dark:text-white">
+            <i class="fas fa-brain text-primary-500 mr-2"></i> 智能财报分析
+        </h1>
+        <p class="text-secondary-600 dark:text-secondary-300 mt-2">
+            基于大语言模型的智能财报分析，提供深度洞察和投资建议
+        </p>
+    </div>
+    
+    <!-- 分析表单 -->
+    <div class="bg-white dark:bg-secondary-800 rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-secondary-800 dark:text-white mb-4">
+            <i class="fas fa-search text-primary-500 mr-2"></i> 选择要分析的财报
+        </h2>
+        
+        <form id="analysis-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="form-group">
+                <label for="stock_code" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">股票代码</label>
+                <input type="text" id="stock_code" name="stock_code" class="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-secondary-700 dark:text-white" placeholder="例如: 000001" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="year" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">年份</label>
+                <select id="year" name="year" class="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-secondary-700 dark:text-white" required>
+                    <option value="2025">2025年</option>
+                    <option value="2024">2024年</option>
+                    <option value="2023" selected>2023年</option>
+                    <option value="2022">2022年</option>
+                    <option value="2021">2021年</option>
+                    <option value="2020">2020年</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="report_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">报告类型</label>
+                <select id="report_type" name="report_type" class="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-secondary-700 dark:text-white" required>
+                    <option value="年度报告" selected>年度报告</option>
+                    <option value="半年度报告">半年度报告</option>
+                    <option value="第一季度报告">第一季度报告</option>
+                    <option value="第三季度报告">第三季度报告</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="model_name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">分析模型</label>
+                <select id="model_name" name="model_name" class="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-secondary-700 dark:text-white" required>
+                    <!-- <option value="gpt-3.5-turbo" selected>GPT-3.5 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="claude-3.7-sonnet">Claude 3.7</option> -->
+                    <option value="deepseek-V3">deepseek-V3</option>
+                </select>
+            </div>
+            
+            <div class="col-span-1 md:col-span-2 lg:col-span-4 flex justify-center">
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm transition-colors duration-300 flex items-center">
+                    <i class="fas fa-chart-line mr-2"></i> 开始智能分析
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 分析结果 -->
+    <div id="analysis-results" class="hidden">
+        <div class="bg-white dark:bg-secondary-800 rounded-lg shadow-md p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-secondary-800 dark:text-white" id="company-name">公司名称</h2>
+                    <p class="text-secondary-600 dark:text-secondary-400" id="report-period">2023年年度报告</p>
+                </div>
+                
+                <div class="flex space-x-2 mt-4 md:mt-0">
+                    <button id="export-pdf-btn" class="px-3 py-1.5 bg-secondary-100 hover:bg-secondary-200 dark:bg-secondary-700 dark:hover:bg-secondary-600 text-secondary-800 dark:text-white rounded flex items-center text-sm">
+                        <i class="fas fa-file-pdf mr-1.5 text-danger-500"></i> 导出PDF
+                    </button>
+                    <button id="export-excel-btn" class="px-3 py-1.5 bg-secondary-100 hover:bg-secondary-200 dark:bg-secondary-700 dark:hover:bg-secondary-600 text-secondary-800 dark:text-white rounded flex items-center text-sm">
+                        <i class="fas fa-file-excel mr-1.5 text-success-500"></i> 导出Excel
+                    </button>
+                    <button id="print-btn" class="px-3 py-1.5 bg-secondary-100 hover:bg-secondary-200 dark:bg-secondary-700 dark:hover:bg-secondary-600 text-secondary-800 dark:text-white rounded flex items-center text-sm">
+                        <i class="fas fa-print mr-1.5 text-primary-500"></i> 打印
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 分析结果标签页 -->
+            <div class="mb-6 border-b border-secondary-200 dark:border-secondary-700">
+                <div class="flex overflow-x-auto">
+                    <button class="tab-button active px-4 py-2 text-primary-600 font-medium" data-tab="summary-tab">
+                        <i class="fas fa-file-alt mr-1.5"></i> 分析摘要
+                    </button>
+                    <button class="tab-button px-4 py-2 text-secondary-600 dark:text-secondary-400 font-medium" data-tab="financial-tab">
+                        <i class="fas fa-chart-pie mr-1.5"></i> 财务指标
+                    </button>
+                    <button class="tab-button px-4 py-2 text-secondary-600 dark:text-secondary-400 font-medium" data-tab="business-tab">
+                        <i class="fas fa-briefcase mr-1.5"></i> 业务分析
+                    </button>
+                    <button class="tab-button px-4 py-2 text-secondary-600 dark:text-secondary-400 font-medium" data-tab="investment-tab">
+                        <i class="fas fa-hand-holding-usd mr-1.5"></i> 投资建议
+                    </button>
+                    <button class="tab-button px-4 py-2 text-secondary-600 dark:text-secondary-400 font-medium" data-tab="raw-tab">
+                        <i class="fas fa-code mr-1.5"></i> 原始数据
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 分析摘要标签页内容 -->
+            <div id="summary-tab" class="tab-content active">
+                <div class="bg-secondary-50 dark:bg-secondary-900 rounded-lg p-4 mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-2">
+                        <i class="fas fa-star text-warning-500 mr-1.5"></i> 分析摘要
+                    </h3>
+                    <div id="analysis-summary" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 分析摘要内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+                
+                <!-- 关键指标卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="analysis-card bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-secondary-500 dark:text-secondary-400">营业收入</p>
+                                <h4 id="revenue" class="text-xl font-bold text-secondary-800 dark:text-white mt-1">--</h4>
+                            </div>
+                            <div class="bg-primary-100 dark:bg-primary-900 p-2 rounded-lg">
+                                <i class="fas fa-chart-line text-primary-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span id="revenue-change" class="text-sm font-medium indicator-up">
+                                <i class="fas fa-arrow-up mr-1"></i> --
+                            </span>
+                            <span class="text-xs text-secondary-500 dark:text-secondary-400 ml-1">同比</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-secondary-500 dark:text-secondary-400">净利润</p>
+                                <h4 id="net-profit" class="text-xl font-bold text-secondary-800 dark:text-white mt-1">--</h4>
+                            </div>
+                            <div class="bg-success-100 dark:bg-success-900 p-2 rounded-lg">
+                                <i class="fas fa-coins text-success-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span id="profit-change" class="text-sm font-medium indicator-up">
+                                <i class="fas fa-arrow-up mr-1"></i> --
+                            </span>
+                            <span class="text-xs text-secondary-500 dark:text-secondary-400 ml-1">同比</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-secondary-500 dark:text-secondary-400">每股收益</p>
+                                <h4 id="eps" class="text-xl font-bold text-secondary-800 dark:text-white mt-1">--</h4>
+                            </div>
+                            <div class="bg-warning-100 dark:bg-warning-900 p-2 rounded-lg">
+                                <i class="fas fa-file-invoice-dollar text-warning-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span id="eps-change" class="text-sm font-medium indicator-up">
+                                <i class="fas fa-arrow-up mr-1"></i> --
+                            </span>
+                            <span class="text-xs text-secondary-500 dark:text-secondary-400 ml-1">同比</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-card bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-secondary-500 dark:text-secondary-400">净资产收益率</p>
+                                <h4 id="roe" class="text-xl font-bold text-secondary-800 dark:text-white mt-1">--</h4>
+                            </div>
+                            <div class="bg-danger-100 dark:bg-danger-900 p-2 rounded-lg">
+                                <i class="fas fa-percentage text-danger-500"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span id="roe-change" class="text-sm font-medium indicator-up">
+                                <i class="fas fa-arrow-up mr-1"></i> --
+                            </span>
+                            <span class="text-xs text-secondary-500 dark:text-secondary-400 ml-1">同比</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">盈利能力指标</h3>
+                        <div id="profitability-chart" class="chart-container"></div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">费用构成分析</h3>
+                        <div id="expense-chart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">现金流量分析</h3>
+                    <div id="cash-flow-chart" class="chart-container"></div>
+                </div>
+            </div>
+            
+            <!-- 财务指标标签页内容 -->
+            <div id="financial-tab" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- 基本财务数据 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-file-invoice text-primary-500 mr-1.5"></i> 基本财务数据
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full financial-table">
+                                <thead>
+                                    <tr class="border-b border-secondary-200 dark:border-secondary-700">
+                                        <th class="text-left py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">指标</th>
+                                        <th class="text-right py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">数值</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="basic-financial-data">
+                                    <!-- 基本财务数据将通过JavaScript动态插入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 盈利能力分析 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-chart-line text-success-500 mr-1.5"></i> 盈利能力分析
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full financial-table">
+                                <thead>
+                                    <tr class="border-b border-secondary-200 dark:border-secondary-700">
+                                        <th class="text-left py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">指标</th>
+                                        <th class="text-right py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">数值</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profitability-data">
+                                    <!-- 盈利能力数据将通过JavaScript动态插入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- 偿债能力分析 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-shield-alt text-warning-500 mr-1.5"></i> 偿债能力分析
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full financial-table">
+                                <thead>
+                                    <tr class="border-b border-secondary-200 dark:border-secondary-700">
+                                        <th class="text-left py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">指标</th>
+                                        <th class="text-right py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">数值</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="solvency-data">
+                                    <!-- 偿债能力数据将通过JavaScript动态插入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 运营效率分析 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-cogs text-primary-500 mr-1.5"></i> 运营效率分析
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full financial-table">
+                                <thead>
+                                    <tr class="border-b border-secondary-200 dark:border-secondary-700">
+                                        <th class="text-left py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">指标</th>
+                                        <th class="text-right py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">数值</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="operational-efficiency-data">
+                                    <!-- 运营效率数据将通过JavaScript动态插入 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 现金流分析 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-money-bill-wave text-success-500 mr-1.5"></i> 现金流分析
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full financial-table">
+                            <thead>
+                                <tr class="border-b border-secondary-200 dark:border-secondary-700">
+                                    <th class="text-left py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">指标</th>
+                                    <th class="text-right py-2 px-4 text-secondary-600 dark:text-secondary-400 font-medium">数值</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cash-flow-data">
+                                <!-- 现金流数据将通过JavaScript动态插入 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 业务分析标签页内容 -->
+            <div id="business-tab" class="tab-content">
+                <!-- 业务亮点 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-lightbulb text-warning-500 mr-1.5"></i> 业务亮点
+                    </h3>
+                    <div id="business-highlights" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 业务亮点内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+                
+                <!-- 风险因素 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-exclamation-triangle text-danger-500 mr-1.5"></i> 风险因素
+                    </h3>
+                    <div id="risk-factors" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 风险因素内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+                
+                <!-- 未来展望 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-binoculars text-primary-500 mr-1.5"></i> 未来展望
+                    </h3>
+                    <div id="future-outlook" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 未来展望内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 投资建议标签页内容 -->
+            <div id="investment-tab" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- 投资评级 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-star text-warning-500 mr-1.5"></i> 投资评级
+                        </h3>
+                        <div class="flex items-center justify-center py-4">
+                            <div id="investment-rating" class="text-center">
+                                <div id="rating-badge" class="inline-block px-4 py-2 rounded-full text-white font-bold text-lg bg-success-500">
+                                    买入
+                                </div>
+                                <p class="text-secondary-600 dark:text-secondary-400 mt-2" id="rating-description">
+                                    预计未来6-12个月内有较大上涨空间
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 目标价格 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-bullseye text-danger-500 mr-1.5"></i> 目标价格
+                        </h3>
+                        <div class="flex items-center justify-center py-4">
+                            <div id="target-price" class="text-center">
+                                <div class="text-3xl font-bold text-secondary-800 dark:text-white" id="price-range">
+                                    ¥15.50 - ¥17.20
+                                </div>
+                                <p class="text-secondary-600 dark:text-secondary-400 mt-2" id="price-description">
+                                    预计上涨空间: 15% - 25%
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 建议持有期限 -->
+                    <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                            <i class="fas fa-calendar-alt text-primary-500 mr-1.5"></i> 建议持有期限
+                        </h3>
+                        <div class="flex items-center justify-center py-4">
+                            <div id="holding-period" class="text-center">
+                                <div class="text-2xl font-bold text-secondary-800 dark:text-white" id="period-text">
+                                    中长期
+                                </div>
+                                <p class="text-secondary-600 dark:text-secondary-400 mt-2" id="investor-type">
+                                    适合稳健型投资者
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 投资理由 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-thumbs-up text-success-500 mr-1.5"></i> 投资理由
+                    </h3>
+                    <div id="investment-reasons" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 投资理由内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+                
+                <!-- 风险因素 -->
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-exclamation-circle text-danger-500 mr-1.5"></i> 风险因素
+                    </h3>
+                    <div id="investment-risks" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 投资风险内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+                
+                <!-- 投资建议摘要 -->
+                <div class="bg-secondary-50 dark:bg-secondary-900 rounded-lg p-4 mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-2">
+                        <i class="fas fa-comment-dots text-primary-500 mr-1.5"></i> 投资建议摘要
+                    </h3>
+                    <div id="investment-summary" class="text-secondary-700 dark:text-secondary-300 markdown-content">
+                        <!-- 投资建议摘要内容将通过JavaScript动态插入 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 原始数据标签页内容 -->
+            <div id="raw-tab" class="tab-content">
+                <div class="bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 shadow-sm mb-6">
+                    <h3 class="text-lg font-semibold text-secondary-800 dark:text-white mb-3">
+                        <i class="fas fa-code text-secondary-500 mr-1.5"></i> 原始分析数据 (JSON)
+                    </h3>
+                    <div class="relative">
+                        <button id="copy-json-btn" class="absolute top-2 right-2 bg-secondary-200 hover:bg-secondary-300 dark:bg-secondary-700 dark:hover:bg-secondary-600 text-secondary-800 dark:text-white rounded p-1">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <pre id="raw-json" class="bg-secondary-100 dark:bg-secondary-900 p-4 rounded-lg overflow-x-auto text-sm text-secondary-800 dark:text-secondary-300 max-h-96">
+                            <!-- 原始JSON数据将通过JavaScript动态插入 -->
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载中提示 -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="bg-white dark:bg-secondary-800 rounded-lg p-6 shadow-lg flex flex-col items-center">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-secondary-800 dark:text-white font-medium">正在分析财报，请稍候...</p>
+            <p class="text-secondary-600 dark:text-secondary-400 text-sm mt-2">大型财报分析可能需要1-2分钟</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const analysisForm = document.getElementById('analysis-form');
+        const analysisResults = document.getElementById('analysis-results');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        // 标签页切换
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // 移除所有标签页的active类
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // 添加active类到当前标签页
+                this.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+        
+        // 复制JSON按钮
+        const copyJsonBtn = document.getElementById('copy-json-btn');
+        copyJsonBtn.addEventListener('click', function() {
+            const rawJson = document.getElementById('raw-json');
+            copyToClipboard(rawJson.textContent);
+            showToast('JSON数据已复制到剪贴板', 'success');
+        });
+        
+        // 导出PDF按钮
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        exportPdfBtn.addEventListener('click', function() {
+            showToast('PDF导出功能即将上线', 'info');
+        });
+        
+        // 导出Excel按钮
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        exportExcelBtn.addEventListener('click', function() {
+            showToast('Excel导出功能即将上线', 'info');
+        });
+        
+        // 打印按钮
+        const printBtn = document.getElementById('print-btn');
+        printBtn.addEventListener('click', function() {
+            window.print();
+        });
+        
+        // 表单提交
+        analysisForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // 显示加载中
+            loadingOverlay.classList.remove('hidden');
+            
+            // 获取表单数据
+            const formData = new FormData(analysisForm);
+            const stockCode = formData.get('stock_code');
+            const year = formData.get('year');
+            const reportType = formData.get('report_type');
+            const model = formData.get('model');
+            
+            try {
+                // 发送分析请求
+                const response = await fetch('/llm-analysis/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stock_code: stockCode,
+                        year: parseInt(year),
+                        report_type: reportType,
+                        model: model
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '分析请求失败');
+                }
+                
+                // 解析响应
+                const analysisData = await response.json();
+                
+                // 更新UI
+                updateAnalysisResults(analysisData);
+                
+                // 获取投资建议
+                try {
+                    const investmentResponse = await fetch('/llm-analysis/investment-advice', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(analysisData)
+                    });
+                    
+                    if (investmentResponse.ok) {
+                        const investmentData = await investmentResponse.json();
+                        updateInvestmentAdvice(investmentData);
+                    }
+                } catch (investmentError) {
+                    console.error('获取投资建议失败:', investmentError);
+                }
+                
+                // 显示结果
+                analysisResults.classList.remove('hidden');
+                
+                // 滚动到结果区域
+                analysisResults.scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('分析失败:', error);
+                showToast(`分析失败: ${error.message}`, 'error');
+            } finally {
+                // 隐藏加载中
+                loadingOverlay.classList.add('hidden');
+            }
+        });
+        
+        // 更新分析结果
+        function updateAnalysisResults(data) {
+            // 更新公司信息
+            document.getElementById('company-name').textContent = data.report_info.company_name;
+            document.getElementById('report-period').textContent = data.report_info.report_period;
+            
+            // 更新分析摘要
+            if (data.analysis_summary) {
+                document.getElementById('analysis-summary').innerHTML = marked.parse(data.analysis_summary);
+            }
+            
+            // 更新关键指标卡片
+            updateKeyIndicators(data);
+            
+            // 更新财务指标表格
+            updateFinancialTables(data);
+            
+            // 更新业务分析
+            updateBusinessAnalysis(data);
+            
+            // 更新原始数据
+            document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+            
+            // 创建图表
+            createFinancialCharts(data);
+        }
+        
+        // 更新关键指标
+        function updateKeyIndicators(data) {
+            const basicFinancialData = data.basic_financial_data || {};
+            const profitability = data.profitability || {};
+            
+            // 营业收入
+            if (basicFinancialData.revenue) {
+                document.getElementById('revenue').textContent = formatLargeNumber(basicFinancialData.revenue);
+                
+                // 营业收入同比变化
+                if (basicFinancialData.revenue_growth) {
+                    const revenueChange = document.getElementById('revenue-change');
+                    const growth = basicFinancialData.revenue_growth;
+                    
+                    updateChangeIndicator(revenueChange, growth);
+                }
+            }
+            
+            // 净利润
+            if (basicFinancialData.net_profit) {
+                document.getElementById('net-profit').textContent = formatLargeNumber(basicFinancialData.net_profit);
+                
+                // 净利润同比变化
+                if (basicFinancialData.net_profit_growth) {
+                    const profitChange = document.getElementById('profit-change');
+                    const growth = basicFinancialData.net_profit_growth;
+                    
+                    updateChangeIndicator(profitChange, growth);
+                }
+            }
+            
+            // 每股收益
+            if (basicFinancialData.eps) {
+                document.getElementById('eps').textContent = basicFinancialData.eps;
+                
+                // 每股收益同比变化
+                if (basicFinancialData.eps_growth) {
+                    const epsChange = document.getElementById('eps-change');
+                    const growth = basicFinancialData.eps_growth;
+                    
+                    updateChangeIndicator(epsChange, growth);
+                }
+            }
+            
+            // 净资产收益率
+            if (profitability.roe) {
+                document.getElementById('roe').textContent = profitability.roe + '%';
+                
+                // ROE同比变化
+                if (profitability.roe_change) {
+                    const roeChange = document.getElementById('roe-change');
+                    const growth = profitability.roe_change;
+                    
+                    updateChangeIndicator(roeChange, growth);
+                }
+            }
+        }
+        
+        // 更新变化指标
+        function updateChangeIndicator(element, value) {
+            if (!element || value === undefined || value === null) return;
+            
+            // 移除所有指标类
+            element.classList.remove('indicator-up', 'indicator-down', 'indicator-neutral');
+            
+            let iconClass = 'fa-arrow-right';
+            let indicatorClass = 'indicator-neutral';
+            let prefix = '';
+            
+            // 数值处理
+            let numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                // 尝试从字符串中提取数字
+                const match = value.toString().match(/([-+]?\d+\.?\d*)/);
+                if (match) {
+                    numValue = parseFloat(match[0]);
+                }
+            }
+            
+            if (!isNaN(numValue)) {
+                if (numValue > 0) {
+                    iconClass = 'fa-arrow-up';
+                    indicatorClass = 'indicator-up';
+                    prefix = '+';
+                } else if (numValue < 0) {
+                    iconClass = 'fa-arrow-down';
+                    indicatorClass = 'indicator-down';
+                }
+                
+                // 格式化为百分比
+                if (typeof value === 'number') {
+                    value = numValue.toFixed(2) + '%';
+                }
+                
+                // 添加前缀
+                if (prefix && !value.toString().startsWith('+') && !value.toString().startsWith('-')) {
+                    value = prefix + value;
+                }
+            }
+            
+            // 更新元素
+            element.classList.add(indicatorClass);
+            element.innerHTML = `<i class="fas ${iconClass} mr-1"></i> ${value}`;
+        }
+        
+        // 更新财务指标表格
+        function updateFinancialTables(data) {
+            // 基本财务数据
+            const basicFinancialData = data.basic_financial_data || {};
+            updateTable('basic-financial-data', basicFinancialData, {
+                total_assets: '总资产',
+                total_liabilities: '总负债',
+                net_assets: '净资产',
+                revenue: '营业收入',
+                net_profit: '净利润',
+                eps: '每股收益',
+                dividend: '每股股利',
+                book_value_per_share: '每股净资产'
+            });
+            
+            // 盈利能力分析
+            const profitability = data.profitability || {};
+            updateTable('profitability-data', profitability, {
+                gross_margin: '毛利率',
+                net_margin: '净利率',
+                roe: '净资产收益率(ROE)',
+                roa: '总资产收益率(ROA)',
+                operating_profit_margin: '营业利润率',
+                ebitda_margin: 'EBITDA利润率'
+            });
+            
+            // 偿债能力分析
+            const solvency = data.solvency || {};
+            updateTable('solvency-data', solvency, {
+                debt_to_asset_ratio: '资产负债率',
+                current_ratio: '流动比率',
+                quick_ratio: '速动比率',
+                interest_coverage_ratio: '利息保障倍数',
+                debt_to_equity_ratio: '负债权益比'
+            });
+            
+            // 运营效率分析
+            const operationalEfficiency = data.operational_efficiency || {};
+            updateTable('operational-efficiency-data', operationalEfficiency, {
+                accounts_receivable_turnover: '应收账款周转率',
+                inventory_turnover: '存货周转率',
+                asset_turnover: '总资产周转率',
+                fixed_asset_turnover: '固定资产周转率',
+                accounts_receivable_days: '应收账款周转天数',
+                inventory_days: '存货周转天数'
+            });
+            
+            // 现金流分析
+            const cashFlow = data.cash_flow || {};
+            updateTable('cash-flow-data', cashFlow, {
+                operating: '经营活动现金流量净额',
+                investing: '投资活动现金流量净额',
+                financing: '筹资活动现金流量净额',
+                free_cash_flow: '自由现金流',
+                cash_flow_to_debt_ratio: '现金流量负债比',
+                cash_flow_per_share: '每股经营现金流'
+            });
+        }
+        
+        // 更新表格
+        function updateTable(tableId, data, labelMap) {
+            const tableBody = document.getElementById(tableId);
+            if (!tableBody) return;
+            
+            // 清空表格
+            tableBody.innerHTML = '';
+            
+            // 添加行
+            for (const [key, label] of Object.entries(labelMap)) {
+                if (data[key] !== undefined) {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-secondary-200 dark:border-secondary-700';
+                    
+                    // 指标名称
+                    const labelCell = document.createElement('td');
+                    labelCell.className = 'py-2 px-4 text-secondary-800 dark:text-secondary-300';
+                    labelCell.textContent = label;
+                    
+                    // 指标值
+                    const valueCell = document.createElement('td');
+                    valueCell.className = 'py-2 px-4 text-right font-medium text-secondary-800 dark:text-white';
+                    
+                    // 格式化值
+                    let formattedValue = data[key];
+                    
+                    // 如果是数字，根据指标类型进行格式化
+                    if (typeof formattedValue === 'number') {
+                        // 金额类指标
+                        if (key.includes('assets') || key.includes('liabilities') || 
+                            key.includes('revenue') || key.includes('profit') || 
+                            key.includes('cash_flow') || key.includes('dividend')) {
+                            formattedValue = formatLargeNumber(formattedValue);
+                        }
+                        // 比率类指标
+                        else if (key.includes('margin') || key.includes('ratio') || 
+                                key.includes('roe') || key.includes('roa')) {
+                            formattedValue = formattedValue.toFixed(2) + '%';
+                        }
+                        // 周转率类指标
+                        else if (key.includes('turnover')) {
+                            formattedValue = formattedValue.toFixed(2) + '次';
+                        }
+                        // 天数类指标
+                        else if (key.includes('days')) {
+                            formattedValue = formattedValue.toFixed(1) + '天';
+                        }
+                        // 其他数字
+                        else {
+                            formattedValue = formattedValue.toFixed(2);
+                        }
+                    }
+                    
+                    valueCell.textContent = formattedValue;
+                    
+                    // 添加单元格到行
+                    row.appendChild(labelCell);
+                    row.appendChild(valueCell);
+                    
+                    // 添加行到表格
+                    tableBody.appendChild(row);
+                }
+            }
+            
+            // 如果没有数据，显示提示
+            if (tableBody.children.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 2;
+                cell.className = 'py-4 text-center text-secondary-500 dark:text-secondary-400';
+                cell.textContent = '暂无数据';
+                row.appendChild(cell);
+                tableBody.appendChild(row);
+            }
+        }
+        
+        // 更新业务分析
+        function updateBusinessAnalysis(data) {
+            // 业务亮点 - 可能来自 business_highlights 或 business_analysis
+            let businessHighlights = data.business_highlights || data.business_analysis;
+            if (businessHighlights) {
+                let highlightsText;
+                if (typeof businessHighlights === 'string') {
+                    highlightsText = businessHighlights;
+                } else if (typeof businessHighlights === 'object') {
+                    // 尝试从对象中提取文本或转换为JSON
+                    if (businessHighlights.main_business) {
+                        highlightsText = businessHighlights.main_business;
+                    } else if (businessHighlights.summary) {
+                        highlightsText = businessHighlights.summary;
+                    } else {
+                        highlightsText = JSON.stringify(businessHighlights, null, 2);
+                    }
+                } else {
+                    highlightsText = String(businessHighlights);
+                }
+                document.getElementById('business-highlights').innerHTML = marked.parse(highlightsText);
+            }
+            
+            // 风险因素 - 可能是数组或字符串
+            let riskFactors = data.risk_factors;
+            if (riskFactors) {
+                let riskText;
+                if (typeof riskFactors === 'string') {
+                    riskText = riskFactors;
+                } else if (Array.isArray(riskFactors)) {
+                    riskText = riskFactors.map(item => {
+                        if (typeof item === 'string') {
+                            return '- ' + item;
+                        } else if (item.description) {
+                            return '- ' + item.description;
+                        } else {
+                            return '- ' + JSON.stringify(item);
+                        }
+                    }).join('\n');
+                } else if (typeof riskFactors === 'object') {
+                    riskText = JSON.stringify(riskFactors, null, 2);
+                } else {
+                    riskText = String(riskFactors);
+                }
+                document.getElementById('risk-factors').innerHTML = marked.parse(riskText);
+            }
+            
+            // 未来展望 - 可能是对象或字符串
+            let futureOutlook = data.future_outlook;
+            if (futureOutlook) {
+                let outlookText;
+                if (typeof futureOutlook === 'string') {
+                    outlookText = futureOutlook;
+                } else if (typeof futureOutlook === 'object') {
+                    if (futureOutlook.summary) {
+                        outlookText = futureOutlook.summary;
+                    } else if (futureOutlook.short_term) {
+                        outlookText = `短期: ${futureOutlook.short_term}\n中期: ${futureOutlook.medium_term}\n长期: ${futureOutlook.long_term}`;
+                    } else {
+                        outlookText = JSON.stringify(futureOutlook, null, 2);
+                    }
+                } else {
+                    outlookText = String(futureOutlook);
+                }
+                document.getElementById('future-outlook').innerHTML = marked.parse(outlookText);
+            }
+        }
+        
+        // 更新投资建议
+        function updateInvestmentAdvice(data) {
+            // 投资评级
+            if (data.investment_rating) {
+                const ratingBadge = document.getElementById('rating-badge');
+                const rating = data.investment_rating;
+                
+                // 更新评级样式
+                ratingBadge.textContent = rating;
+                
+                // 根据评级设置颜色
+                ratingBadge.className = 'inline-block px-4 py-2 rounded-full text-white font-bold text-lg';
+                
+                if (rating.includes('买入') || rating.includes('强烈推荐')) {
+                    ratingBadge.classList.add('bg-success-500');
+                } else if (rating.includes('增持') || rating.includes('推荐')) {
+                    ratingBadge.classList.add('bg-success-400');
+                } else if (rating.includes('持有') || rating.includes('中性')) {
+                    ratingBadge.classList.add('bg-warning-500');
+                } else if (rating.includes('减持') || rating.includes('谨慎')) {
+                    ratingBadge.classList.add('bg-danger-400');
+                } else if (rating.includes('卖出') || rating.includes('不推荐')) {
+                    ratingBadge.classList.add('bg-danger-500');
+                } else {
+                    ratingBadge.classList.add('bg-secondary-500');
+                }
+                
+                // 评级描述
+                if (data.rating_description) {
+                    document.getElementById('rating-description').textContent = data.rating_description;
+                }
+            }
+            
+            // 目标价格
+            if (data.target_price) {
+                document.getElementById('price-range').textContent = data.target_price;
+                
+                // 价格描述
+                if (data.price_description) {
+                    document.getElementById('price-description').textContent = data.price_description;
+                }
+            }
+            
+            // 建议持有期限
+            if (data.holding_period) {
+                document.getElementById('period-text').textContent = data.holding_period;
+                
+                // 投资者类型
+                if (data.investor_type) {
+                    document.getElementById('investor-type').textContent = `适合${data.investor_type}投资者`;
+                }
+            }
+            
+            // 投资理由 - 处理不同类型的数据
+            let investmentReasons = data.investment_reasons;
+            if (investmentReasons) {
+                let reasonsText;
+                if (typeof investmentReasons === 'string') {
+                    reasonsText = investmentReasons;
+                } else if (Array.isArray(investmentReasons)) {
+                    reasonsText = investmentReasons.map(item => {
+                        if (typeof item === 'string') {
+                            return '- ' + item;
+                        } else if (item.reason) {
+                            return '- ' + item.reason;
+                        } else {
+                            return '- ' + JSON.stringify(item);
+                        }
+                    }).join('\n');
+                } else if (typeof investmentReasons === 'object') {
+                    reasonsText = JSON.stringify(investmentReasons, null, 2);
+                } else {
+                    reasonsText = String(investmentReasons);
+                }
+                document.getElementById('investment-reasons').innerHTML = marked.parse(reasonsText);
+            }
+            
+            // 投资风险 - 处理不同类型的数据
+            let investmentRisks = data.risk_factors;
+            if (investmentRisks) {
+                let risksText;
+                if (typeof investmentRisks === 'string') {
+                    risksText = investmentRisks;
+                } else if (Array.isArray(investmentRisks)) {
+                    risksText = investmentRisks.map(item => {
+                        if (typeof item === 'string') {
+                            return '- ' + item;
+                        } else if (item.description) {
+                            return '- ' + item.description;
+                        } else {
+                            return '- ' + JSON.stringify(item);
+                        }
+                    }).join('\n');
+                } else if (typeof investmentRisks === 'object') {
+                    risksText = JSON.stringify(investmentRisks, null, 2);
+                } else {
+                    risksText = String(investmentRisks);
+                }
+                document.getElementById('investment-risks').innerHTML = marked.parse(risksText);
+            }
+            
+            // 投资建议摘要 - 处理不同类型的数据
+            let investmentSummary = data.investment_summary;
+            if (investmentSummary) {
+                let summaryText;
+                if (typeof investmentSummary === 'string') {
+                    summaryText = investmentSummary;
+                } else if (typeof investmentSummary === 'object') {
+                    summaryText = JSON.stringify(investmentSummary, null, 2);
+                } else {
+                    summaryText = String(investmentSummary);
+                }
+                document.getElementById('investment-summary').innerHTML = marked.parse(summaryText);
+            }
+        }
+        
+        // 格式化大数字
+        function formatLargeNumber(num) {
+            if (num === null || num === undefined) return '--';
+            
+            if (Math.abs(num) >= 100000000) {
+                return (num / 100000000).toFixed(2) + '亿';
+            } else if (Math.abs(num) >= 10000) {
+                return (num / 10000).toFixed(2) + '万';
+            } else {
+                return num.toFixed(2);
+            }
+        }
+    });
+</script>
+{% endblock %}

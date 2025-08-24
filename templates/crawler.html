@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}爬取财报 - 智能财报分析平台{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-secondary-800">爬取财报</h1>
+    <p class="text-secondary-600 mt-2">从公开渠道获取企业财务报告原始文件</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Left Column - Input Form -->
+    <div>
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-file-download mr-2"></i> 输入爬取信息
+                </h2>
+            </div>
+            <div class="p-6">
+                <form id="crawler-form">
+                    <div class="mb-4">
+                        <label for="stock-code" class="block text-sm font-medium text-secondary-700 mb-1">
+                            股票代码 <span class="text-danger-500">*</span>
+                        </label>
+                        <input type="text" id="stock-code" name="stock_code" required placeholder="例如：000001"
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                        <p class="mt-1 text-sm text-secondary-500">输入6位股票代码，沪市以6开头，深市以0或3开头</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="year" class="block text-sm font-medium text-secondary-700 mb-1">
+                            报告年份 <span class="text-danger-500">*</span>
+                        </label>
+                        <select id="year" name="year" required
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                            <option value="" selected disabled>请选择年份</option>
+                            <!-- 动态生成最近10年的选项 -->
+                            <script>
+                                const currentYear = new Date().getFullYear();
+                                for (let year = currentYear; year >= currentYear - 10; year--) {
+                                    document.write(`<option value="${year}">${year}年</option>`);
+                                }
+                            </script>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="report-type" class="block text-sm font-medium text-secondary-700 mb-1">
+                            报告类型 <span class="text-danger-500">*</span>
+                        </label>
+                        <select id="report-type" name="report_type" required
+                            class="w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                            <option value="" selected disabled>请选择报告类型</option>
+                            <option value="年度报告">年度报告</option>
+                            <option value="半年度报告">半年度报告</option>
+                            <option value="第一季度报告">第一季度报告</option>
+                            <option value="第三季度报告">第三季度报告</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" id="submit-btn"
+                        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md shadow transition duration-200 flex items-center justify-center">
+                        <i class="fas fa-download mr-2"></i> 开始爬取
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - Status and Results -->
+    <div>
+        <!-- Crawling Status Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+            <div class="bg-gradient-to-r from-secondary-600 to-secondary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-spinner mr-2"></i> 爬取状态
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="status-container" class="hidden">
+                    <div class="bg-primary-50 border-l-4 border-primary-400 p-4 rounded-md mb-4" id="status-alert">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0" id="status-spinner">
+                                <svg class="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-primary-700" id="status-message">正在爬取中，请稍候...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="result-container" class="hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                            <div class="bg-success-50 px-6 py-4 border-b border-success-100">
+                                <h3 class="text-lg font-semibold text-success-800">爬取结果</h3>
+                            </div>
+                            <div class="p-6">
+                                <div id="result-details" class="mb-6"></div>
+                                <div class="flex flex-col sm:flex-row gap-3">
+                                    <a href="#" id="download-btn" target="_blank"
+                                        class="bg-primary-600 hover:bg-primary-700 text-white text-center font-medium py-2 px-4 rounded-md shadow transition duration-200 flex items-center justify-center">
+                                        <i class="fas fa-download mr-2"></i> 下载报告
+                                    </a>
+                                    <a href="#" id="analyze-btn"
+                                        class="bg-success-600 hover:bg-success-700 text-white text-center font-medium py-2 px-4 rounded-md shadow transition duration-200 flex items-center justify-center">
+                                        <i class="fas fa-chart-bar mr-2"></i> 分析报告
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="initial-message" class="flex flex-col items-center justify-center py-16">
+                    <i class="fas fa-cloud-download-alt text-secondary-300 text-6xl mb-4"></i>
+                    <p class="text-secondary-500">请在左侧填写信息并开始爬取</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports List Card -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-secondary-600 to-secondary-700 px-6 py-4">
+                <h2 class="text-xl font-semibold text-white flex items-center">
+                    <i class="fas fa-history mr-2"></i> 已爬取的报告
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="reports-list">
+                    <div class="flex justify-center items-center py-10">
+                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+                        <p class="ml-3 text-secondary-600">加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const crawlerForm = document.getElementById('crawler-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusContainer = document.getElementById('status-container');
+        const initialMessage = document.getElementById('initial-message');
+        const statusMessage = document.getElementById('status-message');
+        const statusSpinner = document.getElementById('status-spinner');
+        const statusAlert = document.getElementById('status-alert');
+        const resultContainer = document.getElementById('result-container');
+        const resultDetails = document.getElementById('result-details');
+        const downloadBtn = document.getElementById('download-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        
+        // 加载已爬取的报告列表
+        loadReportsList();
+        
+        // 表单提交处理
+        crawlerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const stockCode = document.getElementById('stock-code').value;
+            const year = document.getElementById('year').value;
+            const reportType = document.getElementById('report-type').value;
+            
+            if (!stockCode || !year || !reportType) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            // 显示状态容器，隐藏初始消息
+            statusContainer.classList.remove('hidden');
+            initialMessage.classList.add('hidden');
+            resultContainer.classList.add('hidden');
+            
+            // 重置状态样式
+            statusAlert.className = 'bg-primary-50 border-l-4 border-primary-400 p-4 rounded-md mb-4';
+            statusMessage.className = 'text-sm text-primary-700';
+            statusSpinner.innerHTML = `
+                <svg class="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            `;
+            
+            // 禁用提交按钮
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg> 爬取中...
+            `;
+            
+            // 创建表单数据
+            const formData = new FormData();
+            formData.append('stock_code', stockCode);
+            formData.append('year', year);
+            formData.append('report_type', reportType);
+            
+            // 发送爬取请求
+            axios.post('/crawler/crawl', formData)
+                .then(function(response) {
+                    // 开始轮询检查状态
+                    checkStatus(stockCode, year, reportType);
+                })
+                .catch(function(error) {
+                    console.error('Error starting crawler:', error);
+                    statusMessage.textContent = '爬取失败: ' + (error.response?.data?.detail || error.message);
+                    statusAlert.className = 'bg-danger-50 border-l-4 border-danger-400 p-4 rounded-md mb-4';
+                    statusMessage.className = 'text-sm text-danger-700';
+                    statusSpinner.innerHTML = `<i class="fas fa-exclamation-circle text-danger-500"></i>`;
+                    
+                    // 恢复提交按钮
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-download mr-2"></i> 开始爬取';
+                });
+        });
+        
+        // 检查爬取状态
+        function checkStatus(stockCode, year, reportType) {
+            axios.get(`/crawler/status/${stockCode}/${year}/${reportType}`)
+                .then(function(response) {
+                    if (response.data.status === 'completed') {
+                        // 爬取完成
+                        statusMessage.textContent = '爬取完成！';
+                        statusAlert.className = 'bg-success-50 border-l-4 border-success-400 p-4 rounded-md mb-4';
+                        statusMessage.className = 'text-sm text-success-700';
+                        statusSpinner.innerHTML = `<i class="fas fa-check-circle text-success-500"></i>`;
+                        
+                        // 显示结果
+                        resultContainer.classList.remove('hidden');
+                        
+                        const metadata = response.data.metadata;
+                        let resultHtml = '';
+                        
+                        if (metadata.report_metadata) {
+                            resultHtml += `
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <p class="text-sm text-secondary-600">公司名称: <span class="font-medium text-secondary-800">${metadata.report_metadata.company_name}</span></p>
+                                    <p class="text-sm text-secondary-600">股票代码: <span class="font-medium text-secondary-800">${metadata.report_metadata.stock_code}</span></p>
+                                    <p class="text-sm text-secondary-600">报告类型: <span class="font-medium text-secondary-800">${metadata.report_metadata.report_period}</span></p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-secondary-600">发布日期: <span class="font-medium text-secondary-800">${metadata.report_metadata.publish_date}</span></p>
+                                    <p class="text-sm text-secondary-600">爬取时间: <span class="font-medium text-secondary-800">${metadata.crawler_metadata.crawl_time}</span></p>
+                                    <p class="text-sm text-secondary-600">文件大小: <span class="font-medium text-secondary-800">${formatFileSize(metadata.file_info.file_size)}</span></p>
+                                </div>
+                            </div>`;
+                            
+                            // 设置下载和分析按钮链接
+                            downloadBtn.href = `/crawler/download/${stockCode}/${year}/${reportType}`;
+                            analyzeBtn.href = `/analysis?stock_code=${stockCode}&year=${year}&report_type=${reportType}`;
+                        } else {
+                            resultHtml = `
+                            <div class="bg-warning-50 border-l-4 border-warning-400 p-4 rounded-md">
+                                <div class="flex">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-exclamation-triangle text-warning-400"></i>
+                                    </div>
+                                    <div class="ml-3">
+                                        <p class="text-sm text-warning-700">爬取成功但未获取到完整元数据</p>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
+                        
+                        resultDetails.innerHTML = resultHtml;
+                        
+                        // 恢复提交按钮
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-download mr-2"></i> 开始爬取';
+                        
+                        // 刷新报告列表
+                        loadReportsList();
+                    } else if (response.data.status === 'processing') {
+                        // 继续轮询
+                        setTimeout(() => checkStatus(stockCode, year, reportType), 2000);
+                    } else {
+                        // 爬取失败
+                        statusMessage.textContent = '爬取失败: ' + (response.data.error_message || '未知错误');
+                        statusAlert.className = 'bg-danger-50 border-l-4 border-danger-400 p-4 rounded-md mb-4';
+                        statusMessage.className = 'text-sm text-danger-700';
+                        statusSpinner.innerHTML = `<i class="fas fa-exclamation-circle text-danger-500"></i>`;
+                        
+                        // 恢复提交按钮
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-download mr-2"></i> 开始爬取';
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error checking status:', error);
+                    statusMessage.textContent = '检查状态失败: ' + (error.response?.data?.detail || error.message);
+                    statusAlert.className = 'bg-danger-50 border-l-4 border-danger-400 p-4 rounded-md mb-4';
+                    statusMessage.className = 'text-sm text-danger-700';
+                    statusSpinner.innerHTML = `<i class="fas fa-exclamation-circle text-danger-500"></i>`;
+                    
+                    // 恢复提交按钮
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-download mr-2"></i> 开始爬取';
+                });
+        }
+        
+        // 加载已爬取的报告列表
+        function loadReportsList() {
+            const reportsListContainer = document.getElementById('reports-list');
+            
+            axios.get('/crawler/list')
+                .then(function(response) {
+                    const reports = response.data.reports;
+                    
+                    if (reports.length === 0) {
+                        reportsListContainer.innerHTML = '<div class="text-center py-8"><p class="text-secondary-500">暂无爬取记录</p></div>';
+                        return;
+                    }
+                    
+                    // 按爬取时间排序（最新的在前）
+                    reports.sort((a, b) => {
+                        const timeA = new Date(a.crawler_metadata.crawl_time);
+                        const timeB = new Date(b.crawler_metadata.crawl_time);
+                        return timeB - timeA;
+                    });
+                    
+                    // 只显示最近5条记录
+                    const recentReports = reports.slice(0, 5);
+                    
+                    let html = '<div class="space-y-4">';
+                    
+                    recentReports.forEach(report => {
+                        if (report.report_metadata) {
+                            const stockCode = report.report_metadata.stock_code;
+                            const year = report.report_metadata.report_period.replace(/[^0-9]/g, '');
+                            const reportType = report.report_metadata.report_type;
+                            
+                            html += `
+                            <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                                <div class="p-4">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="text-lg font-semibold text-secondary-800">${report.report_metadata.company_name}</h3>
+                                        <span class="text-xs text-secondary-500">${report.crawler_metadata.crawl_time}</span>
+                                    </div>
+                                    <p class="text-secondary-600 mb-3">${report.report_metadata.report_period}</p>
+                                    <div class="flex space-x-2">
+                                        <a href="/crawler/download/${stockCode}/${year}/${reportType}" 
+                                           class="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center" 
+                                           target="_blank">
+                                            <i class="fas fa-download mr-1"></i> 下载
+                                        </a>
+                                        <a href="/analysis?stock_code=${stockCode}&year=${year}&report_type=${reportType}" 
+                                           class="text-success-600 hover:text-success-800 text-sm font-medium flex items-center">
+                                            <i class="fas fa-chart-bar mr-1"></i> 分析
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
+                    });
+                    
+                    html += '</div>';
+                    
+                    if (reports.length > 5) {
+                        html += '<div class="text-center mt-6"><p class="text-sm text-secondary-500">显示最近5条记录，共' + reports.length + '条</p></div>';
+                    }
+                    
+                    reportsListContainer.innerHTML = html;
+                })
+                .catch(function(error) {
+                    console.error('Error fetching reports:', error);
+                    reportsListContainer.innerHTML = `
+                    <div class="bg-danger-50 border-l-4 border-danger-400 p-4 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-danger-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-danger-700">获取报告列表失败</p>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    });
+</script>
+{% endblock %}

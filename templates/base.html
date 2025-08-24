@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}智能财报分析平台{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- ApexCharts for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Markdown Support -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        success: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        warning: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            800: '#92400e',
+                            900: '#78350f',
+                        },
+                        danger: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.5s ease-out forwards',
+                        'slide-down': 'slideDown 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                    },
+                },
+            },
+            darkMode: 'class',
+        }
+    </script>
+    
+    {% block extra_css %}{% endblock %}
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+    <!-- Top Navigation Bar -->
+    <nav class="bg-gradient-to-r from-primary-700 to-primary-900 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="flex items-center">
+                            <i class="fas fa-chart-line text-2xl mr-2"></i>
+                            <span class="font-bold text-xl">智能财报分析平台</span>
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/" class="{% if request.url.path == '/' %}border-b-2 border-white text-white{% else %}text-gray-200 hover:text-white hover:border-white{% endif %} inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            <i class="fas fa-home mr-1"></i> 首页
+                        </a>
+                        <a href="/crawler" class="{% if request.url.path == '/crawler' %}border-b-2 border-white text-white{% else %}text-gray-200 hover:text-white hover:border-white{% endif %} inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            <i class="fas fa-download mr-1"></i> 爬取财报
+                        </a>
+                        <a href="/analysis" class="{% if request.url.path == '/analysis' %}border-b-2 border-white text-white{% else %}text-gray-200 hover:text-white hover:border-white{% endif %} inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            <i class="fas fa-chart-bar mr-1"></i> 财报分析
+                        </a>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    <!-- Dark mode toggle -->
+                    <button type="button" onclick="toggleDarkMode()" class="bg-primary-600 p-2 rounded-full text-white hover:bg-primary-500 focus:outline-none mr-3">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:inline"></i>
+                    </button>
+                    
+                    <!-- Notification button -->
+                    <button type="button" class="bg-primary-600 p-2 rounded-full text-white hover:bg-primary-500 focus:outline-none">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    
+                    <!-- User menu -->
+                    <div class="ml-3 relative">
+                        <div>
+                            <button type="button" class="bg-primary-800 flex text-sm rounded-full focus:outline-none" id="user-menu-button" aria-expanded="false">
+                                <span class="sr-only">Open user menu</span>
+                                <div class="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- User dropdown menu (hidden by default) -->
+                        <div id="user-dropdown" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                            <a href="#" class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100" role="menuitem">
+                                <i class="fas fa-user-circle mr-2"></i> 个人资料
+                            </a>
+                            <a href="#" class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100" role="menuitem">
+                                <i class="fas fa-cog mr-2"></i> 设置
+                            </a>
+                            <a href="#" class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100" role="menuitem">
+                                <i class="fas fa-sign-out-alt mr-2"></i> 退出
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="-mr-2 flex items-center sm:hidden">
+                    <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-200 hover:text-white hover:bg-primary-600 focus:outline-none" id="mobile-menu-button" aria-expanded="false">
+                        <span class="sr-only">Open main menu</span>
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile menu, show/hide based on menu state. -->
+        <div class="sm:hidden hidden" id="mobile-menu">
+            <div class="pt-2 pb-3 space-y-1">
+                <a href="/" class="{% if request.url.path == '/' %}bg-primary-800 text-white{% else %}text-gray-200 hover:bg-primary-600 hover:text-white{% endif %} block pl-3 pr-4 py-2 text-base font-medium">
+                    <i class="fas fa-home mr-1"></i> 首页
+                </a>
+                <a href="/crawler" class="{% if request.url.path == '/crawler' %}bg-primary-800 text-white{% else %}text-gray-200 hover:bg-primary-600 hover:text-white{% endif %} block pl-3 pr-4 py-2 text-base font-medium">
+                    <i class="fas fa-download mr-1"></i> 爬取财报
+                </a>
+                <a href="/analysis" class="{% if request.url.path == '/analysis' %}bg-primary-800 text-white{% else %}text-gray-200 hover:bg-primary-600 hover:text-white{% endif %} block pl-3 pr-4 py-2 text-base font-medium">
+                    <i class="fas fa-chart-bar mr-1"></i> 财报分析
+                </a>
+            </div>
+            <div class="pt-4 pb-3 border-t border-primary-800">
+                <div class="flex items-center px-4">
+                    <div class="flex-shrink-0">
+                        <div class="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    </div>
+                    <div class="ml-3">
+                        <div class="text-base font-medium text-white">用户</div>
+                        <div class="text-sm font-medium text-gray-300">user@example.com</div>
+                    </div>
+                    <button type="button" onclick="toggleDarkMode()" class="ml-auto bg-primary-600 flex-shrink-0 p-1 rounded-full text-white hover:bg-primary-500 focus:outline-none">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:inline"></i>
+                    </button>
+                </div>
+                <div class="mt-3 space-y-1">
+                    <a href="#" class="block px-4 py-2 text-base font-medium text-gray-200 hover:bg-primary-600 hover:text-white">
+                        <i class="fas fa-user-circle mr-2"></i> 个人资料
+                    </a>
+                    <a href="#" class="block px-4 py-2 text-base font-medium text-gray-200 hover:bg-primary-600 hover:text-white">
+                        <i class="fas fa-cog mr-2"></i> 设置
+                    </a>
+                    <a href="#" class="block px-4 py-2 text-base font-medium text-gray-200 hover:bg-primary-600 hover:text-white">
+                        <i class="fas fa-sign-out-alt mr-2"></i> 退出
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-secondary-800 text-white py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p class="text-sm">© 2025 智能财报分析平台 | 专注于财务报告数据获取与分析</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-300 hover:text-white">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="#" class="text-gray-300 hover:text-white">
+                        <i class="fab fa-linkedin"></i>
+                    </a>
+                    <a href="#" class="text-gray-300 hover:text-white">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+            
+            // Update aria-expanded attribute
+            const expanded = mobileMenu.classList.contains('hidden') ? 'false' : 'true';
+            this.setAttribute('aria-expanded', expanded);
+        });
+        
+        // User menu toggle
+        const userMenuButton = document.getElementById('user-menu-button');
+        const userDropdown = document.getElementById('user-dropdown');
+        
+        if (userMenuButton && userDropdown) {
+            userMenuButton.addEventListener('click', function() {
+                userDropdown.classList.toggle('hidden');
+                
+                // Update aria-expanded attribute
+                const expanded = userDropdown.classList.contains('hidden') ? 'false' : 'true';
+                this.setAttribute('aria-expanded', expanded);
+            });
+            
+            // Close the dropdown when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!userMenuButton.contains(event.target) && !userDropdown.contains(event.target)) {
+                    userDropdown.classList.add('hidden');
+                    userMenuButton.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

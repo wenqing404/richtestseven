@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+requests
+beautifulsoup4
+aiofiles
+pydantic
+pdfplumber
+python-dotenv
+httpx
+markdown
+openai
+litellm
+# 跳过 tiktoken 安装，因为它需要 Rust 编译器
